@@ -1,0 +1,50 @@
+---
+title: "Emotionality influences beliefs"
+author: "Salonee Jukar & Matti Vuorre"
+date: "2025-03-01"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+# Load required libraries
+library(dplyr)
+library(psych)
+
+```
+
+
+
+```{r}
+#Pre-Test
+
+df<-read.csv2(file.choose(), header=T) #Stimuli_Longform_new downloaded from python and edited to seperate the 3 columns with negative, neutral and positive values
+View(df)
+
+df$Negative <- as.numeric(df$Negative)
+df$Neutral <- as.numeric(df$Neutral)
+
+# Filter for True (T) and Fake (F) headlines
+df_true <- df %>% filter(grepl("T", headline_code))
+df_fake <- df %>% filter(grepl("F", headline_code))
+
+# Further split into Emotional (E) and Neutral (N)
+df_true_emotional <- df_true %>% filter(grepl("E$", headline_code))
+df_true_neutral <- df_true %>% filter(grepl("N$", headline_code))
+
+df_fake_emotional <- df_fake %>% filter(grepl("E$", headline_code))
+df_fake_neutral <- df_fake %>% filter(grepl("N$", headline_code))
+
+# Perform independent t-tests on Negative Scores
+t_test_true <- t.test(df_true_emotional$Negative, df_true_neutral$Negative)
+t_test_fake <- t.test(df_fake_emotional$Negative, df_fake_neutral$Negative)
+
+t_test_true
+t_test_fake
+
+
+# Perform independent t-tests on Neutral Scores
+t_test_true_neu <- t.test(df_true_emotional$Neutral, df_true_neutral$Neutral)
+t_test_fake_neu <- t.test(df_fake_emotional$Neutral, df_fake_neutral$Neutral)
+
+t_test_true_neu
+t_test_fake_neu
