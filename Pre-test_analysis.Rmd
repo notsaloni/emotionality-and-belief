@@ -1,5 +1,5 @@
 ---
-title: "Emotionality influences beliefs"
+title: "Emotionality influences beliefs- Pre-test"
 author: "Salonee Jukar & Matti Vuorre"
 date: "2025-03-01"
 output: pdf_document
