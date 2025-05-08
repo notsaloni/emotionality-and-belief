@@ -6,9 +6,8 @@ output: pdf_document
 ---
 
 ```{r}
-rm(list = ls())
+rm(list = ls())#clear the R-environment
 ```
-
 
 ```{r setup, include=FALSE}
 # Load required libraries
@@ -23,6 +22,7 @@ library(httr)
 library(Matrix)
 library(lmerTest) 
 library(lme4)
+library(ordinal)
 library(nnet)
 library(reshape2)
 library(Hmisc)
@@ -141,11 +141,21 @@ summary(mani_ver)
 ```
 
 ```{r}
+#Centering the variables 
+data_n$belief_mid <- data_n$belief - 5.5
+data_n$CRT_c <- data_n$CRT - mean(data_n$CRT, na.rm = TRUE)
+
 #Main analysis
-model= lmerTest::lmer(belief ~ emotionality*veracity*CRT+ (1 + emotionality+veracity|participant_id) +(1|headline_code), data=data_n, na.action=na.omit)
+model= lmerTest::lmer(belief_mid~ emotionality*veracity*CRT_c+ (1 + emotionality*veracity|participant_id) +(1|headline_code), data=data_n, na.action=na.omit)
 summary(model)  
 fixef(model) #only extracting the fixed-effects estimates
-confint(model) #confidence intervals for the fixed-effects estimates
+confint(model) #confidence intervals for the fixed-effects estimates GIVING ISSUES AT THIS POINT
+
+#Secondary analysis controlling for demographics
+model_c= lmerTest::lmer(belief_mid ~ emotionality*veracity*CRT_c + political_orientation + age + gender+ (1 + emotionality*veracity|participant_id) +(1|headline_code), data=data_n, na.action=na.omit) #no effect of political orientation, age or gender
+summary(model_c)  
+fixef(model_c) #only extracting the fixed-effects estimates
+confint(model_c) #confidence intervals for the fixed-effects estimates GIVING ISSUES AT THIS POINT
 
 #Moderation graphs
 
@@ -155,28 +165,34 @@ confint(model) #confidence intervals for the fixed-effects estimates
 ```
 
 ```{r}
-model_glmm <- glmer(
-  belief ~ emotionality * veracity * CRT +
-    (1 + emotionality + veracity | participant_id) +
+#Sensitivity analysis with ordinal data cumulative link mixed model (Ordinal logistic mixed model)
+data_n$belief_mid_ord <- factor(data_n$belief_mid, ordered = TRUE)
+
+model_ordinal <- clmm(belief_mid_ord ~ emotionality * veracity * CRT_c +
+    (1 + emotionality * veracity | participant_id) +
     (1 | headline_code),
-  data = data_n,
-  family = poisson(link = "log"),
-  na.action = na.omit,
-  control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
-)
+  data = data_n)
 
-
-summary(model_glmm)
+summary(model_ordinal)
 ```
 
 
 ```{r}
-#Additional analysis and assumption checks 
+#Assumption checks 
 # Residuals vs. fitted values
-plot(model) 
+plot(model) #strong slant lines
 
 # Q-Q plot for residuals
 qqnorm(resid(model))
 qqline(resid(model))
 
+table(data_n$belief) #Since we have enough levels (11) to reasonably consider treating it as continuous.
+table(data_n$belief_mid) 
+
+ggplot(data_n, aes(x = belief_mid)) +
+  geom_bar(fill = "steelblue3") +
+  labs(title = "Distribution of Belief", x = "Belief stages", y = "Count") +
+  theme_minimal()
+
+prop.table(table(data_n$belief_mid)) #The distribution is somewhat skewed, with ~24% of responses at stage 0. However, all levels are represented, and no single level dominates the majority (e.g., nothing above 50%).
 ```
