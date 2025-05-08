@@ -30,14 +30,9 @@ library(car)
 ```
 
 ```{r}
-setwd("/Users/saloneejukar/Desktop/Final Year Paper")
-list.files()
-
 # Read the CSV file with the appropriate delimiter
-column_names <- names(read.csv("ReMa Final Year Thesis_Emotionality_May 2, 2025_09.25.csv", nrows = 1))
-
-data <- read.csv("ReMa Final Year Thesis_Emotionality_May 2, 2025_09.25.csv", sep=",", skip = 128, header = FALSE)
-
+column_names<-names(read.csv(file.choose(), nrows = 1))
+data<-read.csv(file.choose(), sep=",", skip = 128, header = FALSE)
 names(data) <- column_names
 
 View(data) #check if the loaded data looks correct
