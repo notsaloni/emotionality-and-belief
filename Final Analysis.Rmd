@@ -138,6 +138,25 @@ summary(mani_emo)
 
 mani_ver <- lm(emotionality_rating ~ veracity, data = data_n)
 summary(mani_ver)
+
+# Filter for True (T) and Fake (F) headlines
+true <- data_n %>% filter(grepl("T", headline_code))
+fake <- data_n %>% filter(grepl("F", headline_code))
+
+# Further split into Emotional (E) and Neutral (N) for True (T) and False (F)
+df_fake_highemo <- fake %>% filter(grepl("E$", headline_code))
+df_fake_lowemo <- fake %>% filter(grepl("N$", headline_code))
+
+df_true_highemo <- true %>% filter(grepl("E$", headline_code))
+df_true_lowemo <- true %>% filter(grepl("N$", headline_code))
+
+
+# Perform t-tests on emotionality ratings
+t_test_trueHL <- t.test(df_true_highemo$emotionality_rating, df_true_lowemo$emotionality_rating) #indicates that True high emotional headlines received a higher emotionality rating than True low emotional headlines
+t_test_fakeHL <- t.test(df_fake_highemo$emotionality_rating, df_fake_lowemo$emotionality_rating) #indicates that Fake high emotional headlines received a higher emotionality rating than Fake low emotional headlines
+
+t_test_highemotionalTF <- t.test(df_true_highemo$emotionality_rating, df_fake_highemo$emotionality_rating) #indicates that True high emotional and Fake high emotional headlines did not differ in their emotionality ratings
+t_test_lowemotionalTF <- t.test(df_true_lowemo$emotionality_rating, df_fake_lowemo$emotionality_rating) #indicates that True low emotional and Fake low emotional headlines did not differ in their emotionality ratings
 ```
 
 ```{r}
