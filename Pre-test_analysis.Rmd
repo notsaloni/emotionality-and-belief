@@ -18,7 +18,6 @@ library(stringr)
 
 
 ```{r}
-
 #Pre-Test A: Difference between Negative and Neutral ratings
 
 df<-read.csv2(file.choose(), header=T, sep = ";") #Stimuli_new downloaded from python and edited to seperate the 3 columns with negative, neutral and positive values
@@ -27,19 +26,16 @@ View(df)
 df$Negative <- as.numeric(df$negative)
 df$Neutral <- as.numeric(df$neutral)
 
-# Filter for True (T) and False (F) headlines
+# Filter for True (T) and Fake (F) headlines
 df_true <- df %>% filter(grepl("T", headline_no))
-df_false <- df %>% filter(grepl("F", headline_no))
+df_fake <- df %>% filter(grepl("F", headline_no))
 
-View(df_false_neutral)
-
-# Further split into Emotional (E) and Neutral (N) for True (T) and False (F)
-df_false_emotional <- df_false %>% filter(grepl("E$", headline_no))
-df_false_neutral <- df_false %>% filter(grepl("N$", headline_no))
+# Further split into Emotional (E) and Neutral (N) for True (T) and Fake (F)
+df_fake_emotional <- df_fake %>% filter(grepl("E$", headline_no))
+df_fake_neutral <- df_fake %>% filter(grepl("N$", headline_no))
 
 df_true_emotional <- df_true %>% filter(grepl("E$", headline_no))
 df_true_neutral <- df_true %>% filter(grepl("N$", headline_no))
-
 
 
 # Perform independent t-tests on Negative Scores
