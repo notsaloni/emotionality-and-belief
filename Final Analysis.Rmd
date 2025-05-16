@@ -7,27 +7,30 @@ output: pdf_document
 
 ```{r}
 rm(list = ls())#clear the R-environment
+options(scipen = 999) #cleaner interpretable output
 ```
 
 ```{r setup, include=FALSE}
 # Load required libraries
 #install.packages("")
-library(psych)
+library(car)
 library(dplyr)
+library(effsize)
+library(emmeans)
+library(ggeffects)
+library(ggplot2)
+library(Hmisc)
+library(httr)
+library(lme4)
+library(lmerTest)
+library(Matrix)
+library(nnet)
+library(ordinal)
+library(psych)
+library(reshape2)
 library(stringr)
 library(tidyr)
-library(ggplot2)
 library(tidyverse)
-library(httr)
-library(Matrix)
-library(lmerTest) 
-library(lme4)
-library(ordinal)
-library(nnet)
-library(effsize)
-library(reshape2)
-library(Hmisc)
-library(car)
 ```
 
 ```{r}
@@ -37,26 +40,41 @@ data<-read.csv(file.choose(), sep=",", skip = 128, header = FALSE)
 names(data) <- column_names
 
 View(data) #check if the loaded data looks correct
+#Descriptive statistics
+range(data$Age_1)
+mean(data$Age_1)
+sd(data$Age_1)
+table(data$Gender)
+edu<-table(data$Educational.level)
+prop.table(edu)
 ```
 
 
 ```{r}
 #per participant CRT score
 table(data$CRT1_1)
-table(data$CRT1_2)
-table(data$CRT1_3)
-table(data$CRT3_1)
-table(data$CRT3_2)
-table(data$CRT3_3)
 score_1 <-ifelse(data$CRT1_1 == 4, 1, 0)
+
+table(data$CRT1_2)
 score_2 <-ifelse(data$CRT1_2 == 10, 1, 0)
+
+table(data$CRT1_3)
 score_3 <-ifelse(data$CRT1_3 == 39, 1, 0)
+
+table(data$CRT3_1)
 score_4 <-ifelse(data$CRT3_1 == 2, 1, 0)
+
+table(data$CRT3_2)
 score_5 <-ifelse(data$CRT3_2 == 8, 1, 0)
+
+table(data$CRT3_3)
 score_6 <- ifelse(tolower(trimws(data$CRT3_3)) == "emily", 1, 0)
 
 scores<-data.frame(score_1, score_2, score_3, score_4, score_5, score_6)
 data$CRT_score<-rowSums(scores) #added the CRT total for each participant in the data
+
+result <- psych::alpha(scores)#scale's reliability
+result$total$raw_alpha #he raw Cronbach’s alpha value — for binary items, this is equivalent to KR-20.
 
 #divide 2 data sets per Series (A and B)
 data_A <- subset(data, Series == "A")
@@ -114,12 +132,10 @@ belief_1 <- as.vector(t(data_A[, 19:34]))
 belief_2 <- as.vector(t(data_B[, 51:66]))
 belief<-c(belief_1, belief_2)
 
-
 #Emotionality rating
 emorating_1<-as.vector(t(data_A[,35:50]))
 emorating_2 <- as.vector(t(data_B[, 67:82]))
 emotionality_rating<-c(emorating_1, emorating_2)
-
 
 #group categorisation (Series A/B)
 series <- c(rep("A", length(grp1)), rep("B", length(grp2)))
@@ -178,12 +194,6 @@ model_c= lmerTest::lmer(belief_mid ~ emotionality*veracity*CRT_c + political_ori
 summary(model_c)  
 fixef(model_c) #only extracting the fixed-effects estimates
 confint(model_c) #confidence intervals for the fixed-effects estimates GIVING ISSUES AT THIS POINT
-
-#Moderation graphs
-
-
-
-
 ```
 
 ```{r}
@@ -196,7 +206,72 @@ model_ordinal <- clmm(belief_mid_ord ~ emotionality * veracity * CRT_c +
   data = data_n)
 
 summary(model_ordinal)
+
+model_ordinal_c <- clmm(belief_mean_ord ~ emotionality * veracity * CRT_c + age + gender + political_orientation +
+    (1 + emotionality*veracity | participant_id) +
+    (1 | headline_code),
+  data = data_n)
+
+summary(model_ordinal_c) #with demographic controls, emotionality main effect marginally significant!
+coef <- model_ordinal_c$beta 
+se <- sqrt(diag(vcov(model_ordinal_c)))[names(model_ordinal_c$beta)]
+
+# 95% CI
+lower <- coef - 1.96 * se
+upper <- coef + 1.96 * se
+
+#beta- raw effect sizes
+beta<-data.frame(names(coef), coef, se, lower, upper)
+
+# For odds ratios
+exp_coef <- exp(coef)
+exp_lower <- exp(lower)
+exp_upper <- exp(upper)
+
+OR<-data.frame(names(exp_coef), exp_coef, exp_lower, exp_upper)
 ```
+
+```{r}
+#Moderation graph
+table(data_n$CRT)
+#grouping CRT scores in 3 groups: Low (0-2), Medium (3-4); High(5-6)
+data_n$CRT_group <- cut(data_n$CRT,
+                    breaks = c(-Inf, 2, 4, Inf),
+                    labels = c("Low", "Medium", "High"))
+
+# Get predicted values for combinations of emotionality, veracity, and CRT_group
+mod<- clmm(belief_mean_ord ~ emotionality * veracity * CRT_group + age + gender + political_orientation +
+    (1 + emotionality*veracity | participant_id) +
+    (1 | headline_code),
+  data = data_n)
+summary(mod)
+emm <- emmeans(mod, ~ emotionality * veracity * CRT_group, at = list(CRT_group = c("Low", "Medium", "High")))
+
+pred_data <- summary(emm)
+pred_data$veracity <- factor(pred_data$veracity, levels = c("1", "0"))  # Order: True (1) first, then False (0)
+
+ggplot(pred_data, aes(x = CRT_group, y = emmean, color = factor(veracity), group = veracity)) +
+  geom_point(size = 3) +
+  geom_line() +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0.1) +
+  scale_color_manual(
+    name = "Veracity",
+    values = c("1" = "darkseagreen4", "0" = "indianred"),#darkcyan #coral2
+    labels = c("1" = "True", "0" = "False")
+  ) +
+  facet_wrap(~ factor(emotionality), labeller = labeller(`factor(emotionality)` = c("0" = "Low emotionality", "1" = "High emotionality"))) +
+  labs(x = "CRT Group", y = "Belief", color = "Veracity") +
+  theme_minimal()+
+  theme(
+    text = element_text(size = 10),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 10),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 13),
+    strip.text = element_text(size = 14)
+  )
+```
+
 
 
 ```{r}
